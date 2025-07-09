@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.models.tasks import Task, TaskCreate
 from typing import List
 import sqlite3
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -10,51 +11,48 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# In-memory store (replace with database later)
-# tasks_db: List[Task] = []
-
 @router.get("/tasks", tags=["tasks"])
-async def get_tasks() -> List[Task]:
+async def get_tasks(current_user: dict = Depends(get_current_user)) -> List[Task]:
     conn = get_db_connection()
-    tasks = conn.execute('SELECT id, title, completed FROM tasks').fetchall()
+    tasks = conn.execute('SELECT id, title, completed, user_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
     conn.close()
     return [dict(task) for task in tasks]
 
 @router.get("/tasks/{task_id}", tags=["tasks"])
-async def get_task(task_id: int) -> Task:
+async def get_task(task_id: int, current_user: dict = Depends(get_current_user)) -> Task:
     conn = get_db_connection()
-    task = conn.execute('SELECT id, title, completed FROM tasks WHERE id = ?', (task_id,)).fetchone()
+    task = conn.execute('SELECT id, title, completed, user_id FROM tasks WHERE id = ? AND user_id = ?', (task_id, current_user["id"],)).fetchone()
     conn.close()
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return dict(task)
 
 @router.post("/tasks", tags=["tasks"])
-async def create_task(task: TaskCreate) -> Task:
+async def create_task(task: TaskCreate, current_user: dict = Depends(get_current_user)) -> Task:
     conn = get_db_connection()
-    conn.execute('INSERT INTO tasks (title, completed) VALUES (?, ?)', (task.title, 1 if task.completed else 0))
+    conn.execute('INSERT INTO tasks (title, completed, user_id) VALUES (?, ?, ?)', (task.title, 1 if task.completed else 0, current_user["id"]))
     conn.commit()
     task_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-    conn.close()  # Ensure closure
-    return Task(id=task_id, title=task.title, completed=task.completed)
+    conn.close()
+    return Task(id=task_id, title=task.title, completed=task.completed, user_id=current_user["id"])
 
 @router.put("/tasks/{task_id}", tags=["tasks"])
-async def update_task(task_id: int, task: TaskCreate) -> Task:
+async def update_task(task_id: int, task: TaskCreate, current_user: dict = Depends(get_current_user)) -> Task:
     conn = get_db_connection()
-    conn.execute('UPDATE tasks SET title = ?, completed = ? WHERE id = ?', (task.title, task.completed, task_id))
+    conn.execute('UPDATE tasks SET title = ?, completed = ? WHERE id = ? AND user_id = ?', (task.title, 1 if task.completed else 0, task_id, current_user["id"]))
     conn.commit()
     conn.close()
-    updated_task = conn.execute('SELECT id, title, completed FROM tasks WHERE id = ?', (task_id,)).fetchone()
+    updated_task = conn.execute('SELECT id, title, completed, user_id FROM tasks WHERE id = ? AND user_id = ?', (task_id, current_user["id"],)).fetchone()
     if updated_task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return dict(updated_task)
 
 @router.delete("/tasks/{task_id}", tags=["tasks"])
-async def delete_task(task_id: int) -> dict:
+async def delete_task(task_id: int, current_user: dict = Depends(get_current_user)) -> dict:
     conn = get_db_connection()
-    conn.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+    conn.execute('DELETE FROM tasks WHERE id = ? AND user_id = ?', (task_id, current_user["id"],))
     conn.commit()
-    cursor = conn.execute('SELECT COUNT(*) FROM tasks WHERE id = ?', (task_id,))
+    cursor = conn.execute('SELECT COUNT(*) FROM tasks WHERE id = ? AND user_id = ?', (task_id, current_user["id"],))
     count = cursor.fetchone()[0]
     conn.close()
     if count == 0:
