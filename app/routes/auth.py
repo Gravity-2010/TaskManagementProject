@@ -1,39 +1,23 @@
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime, timedelta
-import jwt
-
-router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# In-memory user store (replace with database later)
-fake_users_db = {
-    "admin": {"username": "admin", "hashed_password": "hashed_admin_pass", "id": 1}
-}
-
-SECRET_KEY = "your-secret-key"  # Replace with a secure key in production
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
 from fastapi import APIRouter, HTTPException, Depends, Form
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
 import jwt
+import sqlite3
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# In-memory user store
-fake_users_db = {
-    "admin": {"username": "admin", "hashed_password": "hashed_admin", "id": 1}
-}
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")  # Ensure this is the only scheme
 
 SECRET_KEY = "your-secret-key"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+def get_db_connection():
+    conn = sqlite3.connect('tasks.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
 def fake_hash_password(password: str):
-    return "hashed_" + password  # Replace with a proper hashing function in production
+    return "hashed_" + password
 
 def create_access_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
@@ -44,7 +28,9 @@ def create_access_token(data: dict, expires_delta: timedelta):
 
 @router.post("/token")
 async def login(username: str = Form(...), password: str = Form(...)):
-    user = fake_users_db.get(username)
+    conn = get_db_connection()
+    user = conn.execute('SELECT id, username, hashed_password FROM users WHERE username = ?', (username,)).fetchone()
+    conn.close()
     if not user or fake_hash_password(password) != user["hashed_password"]:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -57,6 +43,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         username: str = payload.get("sub")
         user_id: int = payload.get("id")
         if username is None or user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        conn = get_db_connection()
+        user = conn.execute('SELECT id FROM users WHERE id = ?', (user_id,)).fetchone()
+        conn.close()
+        if not user:
             raise HTTPException(status_code=401, detail="Invalid token")
         return {"username": username, "id": user_id}
     except jwt.PyJWTError:
