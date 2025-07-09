@@ -17,7 +17,7 @@ def get_db_connection():
     return conn
 
 def fake_hash_password(password: str):
-    return "hashed_" + password  # Matches the stored 'hashed_admin'
+    return "hashed_" + password
 
 def create_access_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
@@ -25,6 +25,18 @@ def create_access_token(data: dict, expires_delta: timedelta):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+@router.post("/register")
+async def register(username: str = Form(...), password: str = Form(...)):
+    conn = get_db_connection()
+    existing_user = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
+    if existing_user:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Username already taken")
+    conn.execute('INSERT INTO users (username, hashed_password) VALUES (?, ?)', (username, fake_hash_password(password)))
+    conn.commit()
+    conn.close()
+    return {"message": "User registered successfully"}
 
 @router.post("/token")
 async def login(username: str = Form(...), password: str = Form(...)):
