@@ -10,4 +10,3 @@ class Task(BaseModel):
 class TaskCreate(BaseModel):
     title: str
     completed: Optional[bool] = False
-    user_id: int

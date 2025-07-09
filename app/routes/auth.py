@@ -5,7 +5,7 @@ import jwt
 import sqlite3
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")  # Ensure this is the only scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 SECRET_KEY = "your-secret-key"
 ALGORITHM = "HS256"
@@ -17,7 +17,7 @@ def get_db_connection():
     return conn
 
 def fake_hash_password(password: str):
-    return "hashed_" + password
+    return "hashed_" + password  # Matches the stored 'hashed_admin'
 
 def create_access_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
@@ -48,7 +48,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         user = conn.execute('SELECT id FROM users WHERE id = ?', (user_id,)).fetchone()
         conn.close()
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid user")
         return {"username": username, "id": user_id}
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
