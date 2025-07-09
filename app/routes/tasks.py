@@ -1,15 +1,36 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app.models.tasks import Task, TaskCreate, CategoryCreate
 from typing import List
 import sqlite3
 from .auth import get_current_user
+from fastapi.templating import Jinja2Templates
+from fastapi.security import OAuth2PasswordBearer
 
 router = APIRouter()
+templates = Jinja2Templates(directory="app/templates")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def get_db_connection():
     conn = sqlite3.connect('tasks.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+@router.get("/tasks", tags=["tasks"], include_in_schema=False)
+async def get_tasks_html(request: Request, token: str = None):
+    if not token:
+        return templates.TemplateResponse("error.html", {"request": request, "message": "Please provide a token in the URL (e.g., ?token=<your_token>)"})
+    print(f"Received token: {token}")
+    from starlette.requests import HTTPConnection
+    try:
+        fake_request = HTTPConnection(scope={"type": "http", "headers": [("authorization", f"Bearer {token}".encode())]})
+        current_user = await get_current_user(fake_request)
+        conn = get_db_connection()
+        tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
+        conn.close()
+        return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks]})
+    except Exception as e:
+        print(f"Error decoding token: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "message": f"Invalid token: {str(e)}"})
 
 @router.post("/categories", tags=["categories"])
 async def create_category(category: CategoryCreate, current_user: dict = Depends(get_current_user)):
@@ -114,3 +135,15 @@ async def complete_task(task_id: int, current_user: dict = Depends(get_current_u
     conn.commit()
     conn.close()
     return dict(task._replace(completed=1))
+
+@router.post("/tasks/{task_id}/delete", tags=["tasks"])
+async def delete_task(task_id: int, current_user: dict = Depends(get_current_user)) -> dict:
+    conn = get_db_connection()
+    conn.execute('DELETE FROM tasks WHERE id = ? AND user_id = ?', (task_id, current_user["id"],))
+    conn.commit()
+    cursor = conn.execute('SELECT COUNT(*) FROM tasks WHERE id = ? AND user_id = ?', (task_id, current_user["id"],))
+    count = cursor.fetchone()[0]
+    conn.close()
+    if count == 0:
+        return {"message": "Task deleted"}
+    raise HTTPException(status_code=404, detail="Task not found")

@@ -1,0 +1,26 @@
+x<!DOCTYPE html>
+<html>
+<head>
+    <title>Tasks</title>
+</head>
+<body>
+    <h1>Your Tasks</h1>
+    <ul>
+        {% for task in tasks %}
+            <li>
+                {{ task.title }} (Completed: {{ "Yes" if task.completed else "No" }})
+                {% if task.category_id %}
+                    - Category ID: {{ task.category_id }}
+                {% endif %}
+                <form action="/tasks/{{ task.id }}/delete" method="post" onsubmit="return confirm('Are you sure?');">
+                    <button type="submit">Delete</button>
+                </form>
+                <form action="/tasks/{{ task.id }}/complete" method="put">
+                    <button type="submit">Mark Complete</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="/">Back to Home</a>
+</body>
+</html>
