@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.models.tasks import Task, TaskCreate
+from app.models.tasks import Task, TaskCreate, CategoryCreate
 from typing import List
 import sqlite3
 from .auth import get_current_user
@@ -10,6 +10,38 @@ def get_db_connection():
     conn = sqlite3.connect('tasks.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+@router.post("/categories", tags=["categories"])
+async def create_category(category: CategoryCreate, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    existing_category = conn.execute('SELECT id FROM categories WHERE name = ? AND user_id = ?', (category.name, current_user["id"],)).fetchone()
+    if existing_category:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Category already exists")
+    conn.execute('INSERT INTO categories (name, user_id) VALUES (?, ?)', (category.name, current_user["id"]))
+    conn.commit()
+    category_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    conn.close()
+    return {"id": category_id, "name": category.name, "user_id": current_user["id"]}
+
+@router.get("/categories", tags=["categories"])
+async def get_categories(current_user: dict = Depends(get_current_user)) -> List[dict]:
+    conn = get_db_connection()
+    categories = conn.execute('SELECT id, name, user_id FROM categories WHERE user_id = ?', (current_user["id"],)).fetchall()
+    conn.close()
+    return [dict(category) for category in categories]
+
+@router.delete("/categories/{category_id}", tags=["categories"])
+async def delete_category(category_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    category = conn.execute('SELECT id FROM categories WHERE id = ? AND user_id = ?', (category_id, current_user["id"],)).fetchone()
+    if not category:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Category not found")
+    conn.execute('DELETE FROM categories WHERE id = ? AND user_id = ?', (category_id, current_user["id"],))
+    conn.commit()
+    conn.close()
+    return {"message": "Category deleted"}
 
 @router.get("/tasks", tags=["tasks"])
 async def get_tasks(current_user: dict = Depends(get_current_user)) -> List[Task]:
@@ -68,3 +100,17 @@ async def delete_task(task_id: int, current_user: dict = Depends(get_current_use
     if count == 0:
         return {"message": "Task deleted"}
     raise HTTPException(status_code=404, detail="Task not found")
+
+# ... (previous imports and router definition remain)
+
+@router.put("/tasks/{task_id}/complete", tags=["tasks"])
+async def complete_task(task_id: int, current_user: dict = Depends(get_current_user)) -> Task:
+    conn = get_db_connection()
+    task = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE id = ? AND user_id = ?', (task_id, current_user["id"],)).fetchone()
+    if task is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    conn.execute('UPDATE tasks SET completed = 1 WHERE id = ? AND user_id = ?', (task_id, current_user["id"]))
+    conn.commit()
+    conn.close()
+    return dict(task._replace(completed=1))
