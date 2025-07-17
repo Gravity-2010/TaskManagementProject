@@ -24,7 +24,11 @@ async def get_tasks_html(request: Request):
     fake_request = HTTPConnection(scope={"type": "http", "headers": [("authorization", f"Bearer {token}".encode())]})
     current_user = await get_current_user(fake_request)
     conn = get_db_connection()
-    tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
+    search_query = request.query_params.get("search", "").lower()
+    if search_query:
+        tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ? AND LOWER(title) LIKE ?', (current_user["id"], f'%{search_query}%')).fetchall()
+    else:
+        tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
     categories = conn.execute('SELECT id, name FROM categories WHERE user_id = ?', (current_user["id"],)).fetchall()
     conn.close()
     return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks], "categories": [dict(category) for category in categories]})
@@ -104,7 +108,6 @@ async def delete_category(category_id: int, current_user: dict = Depends(get_cur
     if not category or category['user_id'] != current_user["id"]:
         conn.close()
         raise HTTPException(status_code=403, detail="Unauthorized or category not found")
-    # Check if any tasks are using this category
     tasks_using_category = conn.execute('SELECT id FROM tasks WHERE category_id = ?', (category_id,)).fetchone()
     if tasks_using_category:
         conn.close()
