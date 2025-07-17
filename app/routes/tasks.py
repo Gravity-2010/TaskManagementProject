@@ -4,11 +4,10 @@ from typing import List
 import sqlite3
 from .auth import get_current_user
 from fastapi.templating import Jinja2Templates
-from fastapi.security import OAuth2PasswordBearer
+from starlette.requests import Request as StarletteRequest
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def get_db_connection():
     conn = sqlite3.connect('tasks.db')
@@ -16,21 +15,17 @@ def get_db_connection():
     return conn
 
 @router.get("/tasks", tags=["tasks"], include_in_schema=False)
-async def get_tasks_html(request: Request, token: str = None):
+async def get_tasks_html(request: Request):
+    token = request.cookies.get("access_token")
     if not token:
-        return templates.TemplateResponse("error.html", {"request": request, "message": "Please provide a token in the URL (e.g., ?token=<your_token>)"})
-    print(f"Received token: {token}")
+        return templates.TemplateResponse("error.html", {"request": request, "message": "Please log in"})
     from starlette.requests import HTTPConnection
-    try:
-        fake_request = HTTPConnection(scope={"type": "http", "headers": [("authorization", f"Bearer {token}".encode())]})
-        current_user = await get_current_user(fake_request)
-        conn = get_db_connection()
-        tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
-        conn.close()
-        return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks]})
-    except Exception as e:
-        print(f"Error decoding token: {e}")
-        return templates.TemplateResponse("error.html", {"request": request, "message": f"Invalid token: {str(e)}"})
+    fake_request = HTTPConnection(scope={"type": "http", "headers": [("authorization", f"Bearer {token}".encode())]})
+    current_user = await get_current_user(fake_request)
+    conn = get_db_connection()
+    tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
+    conn.close()
+    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks]})
 
 @router.post("/categories", tags=["categories"])
 async def create_category(category: CategoryCreate, current_user: dict = Depends(get_current_user)):

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .register-form { max-width: 300px; padding: 20px; border: 1px solid #ccc; }
+        .register-form input { width: 100%; margin: 5px 0; padding: 5px; }
+        .register-form button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <h1>Register</h1>
+    <div class="register-form">
+        <form method="post" action="/register">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Register</button>
+        </form>
+        {% if message %}
+            <p style="color: red;">{{ message }}</p>
+        {% endif %}
+    </div>
+    <p>Already have an account? <a href="/">Login</a></p>
+</body>
+</html>
