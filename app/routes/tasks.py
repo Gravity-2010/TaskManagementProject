@@ -14,6 +14,7 @@ def get_db_connection():
     conn = sqlite3.connect('tasks.db')
     conn.row_factory = sqlite3.Row
     return conn
+
 @router.get("/tasks", tags=["tasks"], include_in_schema=False)
 async def get_tasks_html(request: Request):
     token = request.cookies.get("access_token")
@@ -35,18 +36,30 @@ async def create_task(request: Request, title: str = Form(...), current_user: di
     conn.close()
     return RedirectResponse(url="/tasks", status_code=303)
 
-@router.get("/tasks", tags=["tasks"], include_in_schema=False)
-async def get_tasks_html(request: Request):
-    token = request.cookies.get("access_token")
-    if not token:
-        return templates.TemplateResponse("error.html", {"request": request, "message": "Please log in"})
-    from starlette.requests import HTTPConnection
-    fake_request = HTTPConnection(scope={"type": "http", "headers": [("authorization", f"Bearer {token}".encode())]})
-    current_user = await get_current_user(fake_request)
+@router.post("/tasks/{task_id}/edit")
+async def edit_task(task_id: int, new_title: str = Form(...), current_user: dict = Depends(get_current_user)):
     conn = get_db_connection()
-    tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
+    task = conn.execute('SELECT user_id FROM tasks WHERE id = ?', (task_id,)).fetchone()
+    if not task or task['user_id'] != current_user["id"]:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Unauthorized or task not found")
+    conn.execute('UPDATE tasks SET title = ? WHERE id = ?', (new_title, task_id))
+    conn.commit()
     conn.close()
-    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks]})
+    return RedirectResponse(url="/tasks", status_code=303)
+
+# @router.get("/tasks", tags=["tasks"], include_in_schema=False)
+# async def get_tasks_html(request: Request):
+#     token = request.cookies.get("access_token")
+#     if not token:
+#         return templates.TemplateResponse("error.html", {"request": request, "message": "Please log in"})
+#     from starlette.requests import HTTPConnection
+#     fake_request = HTTPConnection(scope={"type": "http", "headers": [("authorization", f"Bearer {token}".encode())]})
+#     current_user = await get_current_user(fake_request)
+#     conn = get_db_connection()
+#     tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
+#     conn.close()
+#     return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks]})
 
 @router.post("/categories", tags=["categories"])
 async def create_category(category: CategoryCreate, current_user: dict = Depends(get_current_user)):

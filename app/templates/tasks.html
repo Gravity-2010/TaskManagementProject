@@ -1,4 +1,4 @@
-x<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <title>Tasks</title>
@@ -12,7 +12,10 @@ x<!DOCTYPE html>
         li { background: white; margin: 10px 0; padding: 10px; border-radius: 5px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
         li form { display: inline; }
         li button { padding: 5px 10px; margin-left: 10px; }
+        .edit-form { display: inline; }
+        .edit-form input { width: 150px; padding: 5px; }
         a { color: #4CAF50; text-decoration: none; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -37,13 +40,19 @@ x<!DOCTYPE html>
                         <form action="/tasks/{{ task.id }}/complete" method="put">
                             <button type="submit">Mark Complete</button>
                         </form>
+                        <form class="edit-form" action="/tasks/{{ task.id }}/edit" method="post">
+                            <input type="text" name="new_title" value="{{ task.title }}" required>
+                            <button type="submit">Save</button>
+                        </form>
                     </li>
                 {% endfor %}
             </ul>
         {% else %}
             <p>No tasks found.</p>
         {% endif %}
-        <a href="/">Logout</a> <!-- Placeholder for now, will add logout later -->
+        <form action="/logout" method="get">
+            <button type="submit">Logout</button>
+        </form>
     </div>
 </body>
 </html>
