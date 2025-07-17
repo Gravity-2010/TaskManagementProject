@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Form
 from app.models.tasks import Task, TaskCreate, CategoryCreate
 from typing import List
 import sqlite3
 from .auth import get_current_user
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request as StarletteRequest
+from fastapi.responses import RedirectResponse
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -13,6 +14,26 @@ def get_db_connection():
     conn = sqlite3.connect('tasks.db')
     conn.row_factory = sqlite3.Row
     return conn
+@router.get("/tasks", tags=["tasks"], include_in_schema=False)
+async def get_tasks_html(request: Request):
+    token = request.cookies.get("access_token")
+    if not token:
+        return templates.TemplateResponse("error.html", {"request": request, "message": "Please log in"})
+    from starlette.requests import HTTPConnection
+    fake_request = HTTPConnection(scope={"type": "http", "headers": [("authorization", f"Bearer {token}".encode())]})
+    current_user = await get_current_user(fake_request)
+    conn = get_db_connection()
+    tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
+    conn.close()
+    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks]})
+
+@router.post("/tasks")
+async def create_task(request: Request, title: str = Form(...), current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    conn.execute('INSERT INTO tasks (title, completed, user_id) VALUES (?, ?, ?)', (title, 0, current_user["id"]))
+    conn.commit()
+    conn.close()
+    return RedirectResponse(url="/tasks", status_code=303)
 
 @router.get("/tasks", tags=["tasks"], include_in_schema=False)
 async def get_tasks_html(request: Request):

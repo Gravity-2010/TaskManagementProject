@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from app.routes import tasks
-from app.routes.auth import router as auth_router, get_current_user, create_access_token, pwd_context  # Ensure pwd_context is imported
+from app.routes.auth import router as auth_router, get_current_user, create_access_token, pwd_context
 from fastapi.security import OAuth2PasswordBearer
 import sqlite3
 
@@ -25,23 +25,12 @@ async def home(request: Request):
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
-    print(f"Attempting login for username: {username}")
     conn = get_db_connection()
     user = conn.execute('SELECT id, hashed_password FROM users WHERE username = ?', (username,)).fetchone()
-    print(f"User found: {user}")
     conn.close()
-    if not user:
-        print("No user found")
+    if not user or not pwd_context.verify(password, user['hashed_password']):
         return templates.TemplateResponse("index.html", {"request": request, "message": "Invalid username or password"})
-    try:
-        if not pwd_context.verify(password, user['hashed_password']):
-            print(f"Verification failed for hash: {user['hashed_password']}")
-            return templates.TemplateResponse("index.html", {"request": request, "message": "Invalid username or password"})
-    except Exception as e:
-        print(f"Verification error: {e}")
-        return templates.TemplateResponse("index.html", {"request": request, "message": "Internal error during verification"})
     token = create_access_token({"sub": username, "id": user['id']})
-    print(f"Token created: {token}")
     response = RedirectResponse(url="/tasks", status_code=303)
     response.set_cookie(key="access_token", value=token, httponly=True)
     return response
@@ -62,3 +51,9 @@ async def register(request: Request, username: str = Form(...), password: str = 
     conn.commit()
     conn.close()
     return RedirectResponse(url="/", status_code=303)
+
+@app.get("/logout")
+async def logout(request: Request):
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie("access_token")
+    return response

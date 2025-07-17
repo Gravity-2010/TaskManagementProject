@@ -2,25 +2,48 @@ x<!DOCTYPE html>
 <html>
 <head>
     <title>Tasks</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: auto; }
+        .task-form { background: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .task-form input { width: 70%; padding: 8px; margin-right: 10px; }
+        .task-form button { padding: 8px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
+        ul { list-style-type: none; padding: 0; }
+        li { background: white; margin: 10px 0; padding: 10px; border-radius: 5px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+        li form { display: inline; }
+        li button { padding: 5px 10px; margin-left: 10px; }
+        a { color: #4CAF50; text-decoration: none; }
 </head>
 <body>
-    <h1>Your Tasks</h1>
-    <ul>
-        {% for task in tasks %}
-            <li>
-                {{ task.title }} (Completed: {{ "Yes" if task.completed else "No" }})
-                {% if task.category_id %}
-                    - Category ID: {{ task.category_id }}
-                {% endif %}
-                <form action="/tasks/{{ task.id }}/delete" method="post" onsubmit="return confirm('Are you sure?');">
-                    <button type="submit">Delete</button>
-                </form>
-                <form action="/tasks/{{ task.id }}/complete" method="put">
-                    <button type="submit">Mark Complete</button>
-                </form>
-            </li>
-        {% endfor %}
-    </ul>
-    <a href="/">Back to Home</a>
+    <div class="container">
+        <h1>Your Tasks</h1>
+        <div class="task-form">
+            <form method="post" action="/tasks">
+                <input type="text" name="title" placeholder="New Task" required>
+                <button type="submit">Add Task</button>
+            </form>
+        </div>
+        {% if tasks and tasks|length > 0 %}
+            <ul>
+                {% for task in tasks %}
+                    <li>
+                        {{ task.title }} (Completed: {{ "Yes" if task.completed else "No" }})
+                        {% if task.category_id %}
+                            - Category ID: {{ task.category_id }}
+                        {% endif %}
+                        <form action="/tasks/{{ task.id }}/delete" method="post" onsubmit="return confirm('Are you sure?');">
+                            <button type="submit">Delete</button>
+                        </form>
+                        <form action="/tasks/{{ task.id }}/complete" method="put">
+                            <button type="submit">Mark Complete</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No tasks found.</p>
+        {% endif %}
+        <a href="/">Logout</a> <!-- Placeholder for now, will add logout later -->
+    </div>
 </body>
 </html>
