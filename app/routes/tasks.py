@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, Form
 from app.models.tasks import Task, TaskCreate, CategoryCreate
-from typing import List
+from typing import List, Dict
 import sqlite3
 from .auth import get_current_user
 from fastapi.templating import Jinja2Templates
@@ -30,8 +30,19 @@ async def get_tasks_html(request: Request):
     else:
         tasks = conn.execute('SELECT id, title, completed, user_id, category_id FROM tasks WHERE user_id = ?', (current_user["id"],)).fetchall()
     categories = conn.execute('SELECT id, name FROM categories WHERE user_id = ?', (current_user["id"],)).fetchall()
+
+    # Calculate analytics
+    total_tasks = len(tasks)
+    completed_tasks = len([task for task in tasks if task["completed"]])
+    completion_rate = completed_tasks / total_tasks if total_tasks > 0 else 0
+    analytics = {
+        "total_tasks": total_tasks,
+        "completed_tasks": completed_tasks,
+        "completion_rate": completion_rate
+    }
+
     conn.close()
-    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks], "categories": [dict(category) for category in categories]})
+    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks], "categories": [dict(category) for category in categories], "analytics": analytics})
 
 @router.post("/tasks")
 async def create_task(request: Request, title: str = Form(...), current_user: dict = Depends(get_current_user)):

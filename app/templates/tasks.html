@@ -18,6 +18,7 @@
         select { padding: 5px; margin-right: 10px; }
         .search-form { margin: 20px 0; }
         .search-form input { width: 70%; padding: 8px; }
+        .analytics { margin: 20px 0; background: white; padding: 15px; border-radius: 5px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
         a { color: #4CAF50; text-decoration: none; }
     </style>
 </head>
@@ -51,6 +52,12 @@
                 <input type="text" name="search" placeholder="Search tasks..." value="{{ request.args.get('search', '') }}">
                 <button type="submit">Search</button>
             </form>
+        </div>
+        <div class="analytics">
+            <h2>Task Completion Analytics</h2>
+            <p>Total Tasks: {{ analytics.total_tasks }}</p>
+            <p>Completed Tasks: {{ analytics.completed_tasks }}</p>
+            <p>Completion Rate: {{ '%0.1f'|format(analytics.completion_rate * 100) }}%</p>
         </div>
         {% if tasks and tasks|length > 0 %}
             <ul>
