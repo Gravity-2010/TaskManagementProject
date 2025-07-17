@@ -14,6 +14,8 @@
         li button { padding: 5px 10px; margin-left: 10px; }
         .edit-form { display: inline; }
         .edit-form input { width: 150px; padding: 5px; }
+        .category-form { margin: 20px 0; }
+        select { padding: 5px; margin-right: 10px; }
         a { color: #4CAF50; text-decoration: none; }
     </style>
 </head>
@@ -26,13 +28,19 @@
                 <button type="submit">Add Task</button>
             </form>
         </div>
+        <div class="category-form">
+            <form method="post" action="/categories">
+                <input type="text" name="name" placeholder="New Category" required>
+                <button type="submit">Add Category</button>
+            </form>
+        </div>
         {% if tasks and tasks|length > 0 %}
             <ul>
                 {% for task in tasks %}
                     <li>
                         {{ task.title }} (Completed: {{ "Yes" if task.completed else "No" }})
                         {% if task.category_id %}
-                            - Category ID: {{ task.category_id }}
+                            - Category: {{ task.category_id|join(', ') if task.category_id is iterable else task.category_id }}
                         {% endif %}
                         <form action="/tasks/{{ task.id }}/delete" method="post" onsubmit="return confirm('Are you sure?');">
                             <button type="submit">Delete</button>
@@ -43,6 +51,15 @@
                         <form class="edit-form" action="/tasks/{{ task.id }}/edit" method="post">
                             <input type="text" name="new_title" value="{{ task.title }}" required>
                             <button type="submit">Save</button>
+                        </form>
+                        <form action="/tasks/{{ task.id }}/assign_category" method="post">
+                            <select name="category_id">
+                                <option value="">Select Category</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit">Assign</button>
                         </form>
                     </li>
                 {% endfor %}
