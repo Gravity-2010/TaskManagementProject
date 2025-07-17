@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Request, Form
+from fastapi import FastAPI, Depends, HTTPException, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from app.routes import tasks
@@ -56,4 +56,30 @@ async def register(request: Request, username: str = Form(...), password: str = 
 async def logout(request: Request):
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("access_token")
+    return response
+
+@app.get("/settings", tags=["settings"], include_in_schema=False)
+async def settings_get(request: Request, current_user: dict = Depends(get_current_user)):
+    return templates.TemplateResponse("settings.html", {"request": request, "current_user": current_user})
+
+@app.post("/settings/username")
+async def update_username(new_username: str = Form(...), current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    existing_user = conn.execute('SELECT id FROM users WHERE username = ?', (new_username,)).fetchone()
+    if existing_user:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Username already taken")
+    conn.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, current_user["id"]))
+    conn.commit()
+    conn.close()
+
+    token = create_access_token({"sub": new_username, "id": current_user["id"]})
+    response = RedirectResponse(url="/tasks", status_code=303)
+    response.set_cookie(key="access_token", value=token, httponly=True)
+    return response
+
+@app.post("/settings/theme")
+async def update_theme(theme: str = Form(...), current_user: dict = Depends(get_current_user)):
+    response = RedirectResponse(url="/settings", status_code=303)
+    response.set_cookie(key="theme", value=theme, httponly=False)
     return response

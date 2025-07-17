@@ -42,7 +42,7 @@ async def get_tasks_html(request: Request):
     }
 
     conn.close()
-    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks], "categories": [dict(category) for category in categories], "analytics": analytics})
+    return templates.TemplateResponse("tasks.html", {"request": request, "tasks": [dict(task) for task in tasks], "categories": [dict(category) for category in categories], "analytics": analytics, "current_user": current_user})
 
 @router.post("/tasks")
 async def create_task(request: Request, title: str = Form(...), current_user: dict = Depends(get_current_user)):

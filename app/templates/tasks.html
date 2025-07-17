@@ -53,6 +53,12 @@
                 <button type="submit">Search</button>
             </form>
         </div>
+        <div class = "logout-form">
+            <form action="/logout" method="get">
+                <button type="submit">Logout</button>
+            </form>
+            <a href="/settings">Settings</a>
+        </div>
         <div class="analytics">
             <h2>Task Completion Analytics</h2>
             <p>Total Tasks: {{ analytics.total_tasks }}</p>
@@ -98,3 +104,4 @@
     </div>
 </body>
 </html>
+<!DOCTYPE html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Settings</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: {{ 'white' if request.cookies.get('theme') != 'dark' else '#333' }}; color: {{ '#333' if request.cookies.get('theme') != 'dark' else 'white' }}; }
+        .container { max-width: 600px; margin: auto; background: {{ 'white' if request.cookies.get('theme') != 'dark' else '#444' }}; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .form-group { margin: 15px 0; }
+        .form-group input, .form-group button { padding: 8px; margin-right: 10px; }
+        .form-group button { background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
+        a { color: #4CAF50; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Settings</h1>
+        <form method="post" action="/settings/username">
+            <div class="form-group">
+                <input type="text" name="new_username" placeholder="New Username" required value="{{ current_user.username if current_user else '' }}">
+                <button type="submit">Update Username</button>
+            </div>
+        </form>
+        <form method="post" action="/settings/theme">
+            <div class="form-group">
+                <button type="submit" name="theme" value="light">Switch to Light Theme</button>
+                <button type="submit" name="theme" value="dark">Switch to Dark Theme</button>
+            </div>
+        </form>
+        <a href="/tasks">Back to Tasks</a>
+    </div>
+</body>
+</html>
